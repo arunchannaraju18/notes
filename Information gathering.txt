@@ -1,0 +1,162 @@
+Information Gathering
+
+Passive information gathering
+----------------------------------------------------
+whois enumeration
+
+whois domain_name -h <kali_ip>
+
+whois ip -h <kali_ip>
+
+----------------------------------------------------
+Google Hacking
+
+site: website.com
+
+site: website.com filetype:txt
+
+site: website.com -filetype:txt        -->        excludes txt files
+
+intitle:"index of" "parent directory"  -->        finds the pages that contain "index of" in the title and the words "parent directory" on the page.
+
+The Google Hacking Database (GHDB)5 contains multitudes of creative searches that demonstrate the power of leveraging combined operators.
+
+----------------------------------------------------
+
+Netcraft
+
+Netcraft is an internet service company, based in England, offering a free web portal that performs various information gathering functions such as 
+discovering which technologies are running on a given website and finding which other hosts share the same IP netblock.
+
+----------------------------------------------------
+
+Open source Code
+
+search repositories in github
+Gitrob8 and Gitleaks
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+Active information gathering
+
+DNS Enumeration
+
+The Domain Name System (DNS)1 is a distributed database responsible for translating user-friendly domain names into IP addresses. 
+It's one of the most critical systems on the internet. This is facilitated by a hierarchical structure that is divided into several zones, starting with the top-level root zone.
+
+Each domain can use different types of DNS records. Some of the most common types of DNS records include:
+
+NS: Nameserver records contain the name of the authoritative servers hosting the DNS records for a domain.
+A: Also known as a host record, the "a record" contains the IPv4 address of a hostname (such as www.megacorpone.com).
+AAAA: Also known as a quad A host record, the "aaaa record" contains the IPv6 address of a hostname (such as www.megacorpone.com).
+MX: Mail Exchange records contain the names of the servers responsible for handling email for the domain. A domain can contain multiple MX records.
+PTR: Pointer Records are used in reverse lookup zones and can find the records associated with an IP address.
+CNAME: Canonical Name Records are used to create aliases for other host records.
+TXT: Text records can contain any arbitrary data and be used for various purposes, such as domain ownership verification.
+
+host www.megacorpone.com                              -->   Using host to find the A host record for www.megacorpone.com
+
+host -t mx megacorpone.com                            -->   Using host to find the MX records for megacorpone.com
+
+dnsrecon -d megacorpone.com -t std                    -->   Using dnsrecon to perform a standard scan
+
+dnsrecon -d megacorpone.com -D ~/list.txt -t brt      -->   Brute forcing hostnames using dnsrecon
+
+dnsenum megacorpone.com                               -->   Using dnsenum to automate DNS enumeration
+
+nslookup -type=TXT info.megacorptwo.com 192.168.50.151  -->   Using nslookup to perform a more specific query
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Nmap scans
+
+sudo nmap -sS 192.168.50.149                    -->       Using nmap to perform a SYN scan
+
+nmap -sT 192.168.50.149                         -->       Using nmap to perform a TCP connect scan
+
+sudo nmap -sU 192.168.50.149                    -->       Using nmap to perform a UDP scan
+
+nmap -sn 192.168.50.1-253                       -->       Using nmap to perform a network sweep
+
+nmap -v -sn 192.168.50.1-253 -oG ping-sweep.txt
+grep Up ping-sweep.txt | cut -d " " -f 2        -->       Using nmap to perform a network sweep and then using grep to find live hosts
+
+nmap -p 80 192.168.50.1-253 -oG web-sweep.txt
+grep open web-sweep.txt | cut -d" " -f2         -->       Using nmap to scan for web servers using port 80
+
+nmap -sT -A --top-ports=20 192.168.50.1-253 -oG top-port-sweep.txt    -->    Using nmap to perform a top twenty port scan, saving the output in greppable format
+
+sudo nmap -O 192.168.50.14 --osscan-guess       -->       Using nmap for OS fingerprinting
+
+nmap -sT -A 192.168.50.14                       -->       Using nmap for banner grabbing and/or service enumeration
+
+nmap --script http-title 192.168.188.1-255         -->       Using nmap's scripting engine (NSE) for OS fingerprinting
+
+Test-NetConnection -Port 445 192.168.50.151     -->       Port scanning SMB via PowerShell
+
+1..1024 | % {echo ((New-Object Net.Sockets.TcpClient).Connect("192.168.50.151", $_)) "TCP port $_ is open"} 2>$null         -->       Automating the PowerShell portscanning
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SMB Enumeration
+
+The NetBIOS3 service listens on TCP port 139, as well as several UDP ports. It should be noted that SMB (TCP port 445) and NetBIOS are two separate protocols. 
+NetBIOS is an independent session layer protocol and service that allows computers on a local network to communicate with each other. 
+While modern implementations of SMB can work without NetBIOS, NetBIOS over TCP (NBT)4 is required for backward compatibility and these are often enabled together. 
+This also means the enumeration of these two services often goes hand-in-hand.
+
+nmap -v -p 139,445 -oG smb.txt 192.168.50.1-254                    -->    Using nmap to scan for the NetBIOS service
+
+sudo nbtscan -r 192.168.50.0/24                                    -->    Using nbtscan to collect additional NetBIOS information
+
+ls -1 /usr/share/nmap/scripts/smb*                                 -->    Finding various nmap SMB NSE scripts
+
+
+nmap -v -p 139,445 --script smb-os-discovery 192.168.50.152        -->    Using the nmap scripting engine to perform OS discovery
+
+net view \\dc01 /all                                               -->    Running 'net view' to list remote shares
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+

